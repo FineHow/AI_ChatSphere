@@ -1,0 +1,8 @@
+{
+  "name": "Nexus Mind: Multi-Agent Workshop",
+  "description": "An advanced AI orchestration platform featuring single-agent chat, dual-agent debates, and multi-agent seminars with transparent memory tracing.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
