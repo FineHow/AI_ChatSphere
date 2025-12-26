@@ -1,12 +1,10 @@
-# 聊想 (AI ChatSphere)
+# 聊想 (AI ChatSphere)🤣
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)    [![GitHub Stars](https://img.shields.io/github/stars/yourusername/ai-chatsphere.svg)](https://github.com/yourusername/ai-chatsphere/stargazers)   [![Issues](https://img.shields.io/github/issues/yourusername/ai-chatsphere.svg)](https://github.com/yourusername/ai-chatsphere/issues)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **聊想 (AI ChatSphere)** 是一个创新的多智能体对话平台，旨在为用户提供一个充满创意与思想碰撞的虚拟互动空间。通过多模型AI技术，用户可以与个性化智能体深度交流、体验角色扮演的情景对话、参与或围观激烈的多方讨论，并探索AI的思维逻辑。无论是娱乐、学习还是创意激发，AI ChatSphere 都能为你带来独特体验。
 
 ## 项目介绍
-
-AI ChatSphere 是一个基于自然语言处理（NLP）技术的多场景多智能体AI互动平台，核心目标是通过多样化的对话模式，满足用户在娱乐、学习和工作中的不同需求。项目支持用户与多个自定义AI智能体交互，同时提供情景演绎、会议室讨论和AI辩论等多种功能，创造出从轻松趣味到深度思考的广泛使用场景。
 
 ### 核心功能与技术亮点
 
