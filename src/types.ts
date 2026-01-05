@@ -18,7 +18,7 @@ export interface Agent {
   model: string;
   temperature: number;
   color: string;
-  maxOutputTokens?: number; // 新增：最大输出字数限制
+  maxOutputTokens?: number; // 最大输出字数限制
 }
 
 export interface Message {
