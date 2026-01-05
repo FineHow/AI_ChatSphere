@@ -8,24 +8,12 @@ import {
 } from './types';
 import { DEFAULT_AGENTS} from './constants';
 import { geminiService } from './services/gemini';
-import { 
-  Cpu, 
-  Send, 
-  Play, 
-  Square,
-  Coffee,
-  Eye,
-  Share2,
-  Menu,
-} from 'lucide-react';
 
-import { MessageBubble } from './components/Chat/MessageBubble';
-import { ThinkingBubble } from './components/Chat/ThinkingBubble';
+
 import { LeftSidebar } from './components/Layout/LeftSiderbar';
 import { RightPanel } from './components/Layout/RightPanel';
 import { AgentEditor } from './components/Modals/AgentEditor';
-
-
+import {ChatView } from './components/Chat/ChatView';
 
 
 export default function App() {
@@ -274,13 +262,21 @@ export default function App() {
      }
   };
 
-  // 1. 封装更新逻辑 (非常重要，这样 RightPanel 就不需要关心 setSessions 的复杂语法)
+  // 1. 封装更新逻辑 (这样 RightPanel 就不需要关心 setSessions 的复杂语法)
   const handleUpdateCurrentSession = (updates: Partial<Session>) => {
     if (!currentSessionId) return;
     setSessions(prev => prev.map(s => 
       s.id === currentSessionId ? { ...s, ...updates } : s
     ));
   };
+
+
+  // 停止函数传递给子组件
+  const handleStopGeneration = () => {
+    if (!currentSessionId) return;
+    setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, isRunning: false } : s));
+  };
+
 
   return (
     <div className="flex h-screen w-full overflow-hidden font-sans text-black dark:text-white transition-colors duration-300">
@@ -313,121 +309,29 @@ export default function App() {
         <div onClick={() => setShowLeftSidebar(false)} className="fixed inset-0 z-40 bg-black/50 md:hidden backdrop-blur-sm" />
       )}
 
-      {/* --- 主对话区 --- */}
+
+
+     {/* 2. 主聊天视图 (中间部分) */}
       <div className="flex-1 flex flex-row overflow-hidden bg-[#F2F2F7] dark:bg-black relative">
-        
-        <div className="flex-1 flex flex-col relative overflow-hidden h-full">
-          <header className="h-16 px-4 md:px-6 flex items-center justify-between glass z-10 border-b border-gray-200 dark:border-[#2C2C2E] shrink-0">
-            <div className="flex items-center gap-2 md:gap-4">
-              <button onClick={() => setShowLeftSidebar(true)} className="md:hidden p-2 text-gray-500 hover:text-blue-500 transition-colors">
-                <Menu size={20} />
-              </button>
-              <div className="flex bg-gray-200/50 dark:bg-white/5 p-1 rounded-xl">
-                <button onClick={() => switchMode(SessionType.SINGLE)}
-                  className={`px-2.5 md:px-4 py-1.5 rounded-lg text-[10px] md:text-xs font-bold transition-all ${activeMode === SessionType.SINGLE ? 'bg-white dark:bg-[#3A3A3C] shadow-sm text-black dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}>
-                  对话
-                </button>
-                <button onClick={() => switchMode(SessionType.DUAL)}
-                  className={`px-2.5 md:px-4 py-1.5 rounded-lg text-[10px] md:text-xs font-bold transition-all ${activeMode === SessionType.DUAL ? 'bg-white dark:bg-[#3A3A3C] shadow-sm text-black dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}>
-                  双机
-                </button>
-                <button onClick={() => switchMode(SessionType.MULTI)}
-                  className={`px-2.5 md:px-4 py-1.5 rounded-lg text-[10px] md:text-xs font-bold transition-all ${activeMode === SessionType.MULTI ? 'bg-white dark:bg-[#3A3A3C] shadow-sm text-black dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}>
-                  会议
-                </button>
-              </div>
-            </div>
+        <ChatView 
+          session={currentSession}
+          activeMode={activeMode}
+          agents={agents}
+          userInput={userInput}
+          isRightPanelOpen={showRightPanel}
+          selectedMsgId={selectedMsgId}
+          onMenuClick={() => setShowLeftSidebar(true)}
+          onToggleRightPanel={() => setShowRightPanel(!showRightPanel)}
+          onSwitchMode={switchMode}
+          onShare={handleShare}
+          onInputChange={setUserInput}
+          onSendMessage={handleSendMessage}
+          onStopGeneration={handleStopGeneration}
+          onStartWorkshop={startWorkshop}
+          onMsgSelect={setSelectedMsgId}
+        />
 
-            <div className="flex items-center gap-2 md:gap-4">
-              <button onClick={handleShare} title="分享对话" className="p-2 rounded-xl bg-gray-200 dark:bg-white/5 text-gray-400 hover:text-blue-500 transition-all">
-                <Share2 size={18} />
-              </button>
-              <button onClick={() => setShowRightPanel(!showRightPanel)}
-                className={`p-2 rounded-xl transition-all ${showRightPanel ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : 'bg-gray-200 dark:bg-white/5 text-gray-400 hover:text-black dark:hover:text-white'}`}>
-                <Cpu size={18} />
-              </button>
-            </div>
-          </header>
-
-          <div className="flex-1 flex flex-col p-3 md:p-8 overflow-y-auto overflow-x-hidden scrollbar-hide" ref={scrollRef}>
-            <div className="max-w-4xl mx-auto w-full relative">
-              {activeMode === SessionType.DUAL && (
-                <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px flex justify-center pointer-events-none opacity-[0.03] dark:opacity-[0.05]">
-                  <div className="w-full h-full bg-white dark:bg-white" />
-                </div>
-              )}
-
-              {currentSession?.messages.length === 0 && !currentSession?.isRunning && (
-                <div className="py-24 flex flex-col items-center opacity-10">
-                  <div className="p-8 rounded-[40px] bg-gray-300 dark:bg-white/10 mb-6"><Coffee size={64}/></div>
-                  <p className="text-lg font-black tracking-[0.3em] uppercase">等待开启</p>
-                </div>
-              )}
-              
-              {currentSession?.messages.map(msg => (
-                <MessageBubble 
-                  key={msg.id} 
-                  message={msg} 
-                  agents={agents} 
-                  session={currentSession}
-                  isSelected={selectedMsgId === msg.id}
-                  onSelect={() => setSelectedMsgId(msg.id)}
-                />
-              ))}
-              
-              {currentSession?.isRunning && (
-                <ThinkingBubble 
-                  agent={agents.find(a => a.id === currentSession.agentIds[currentSession.currentRound % currentSession.agentIds.length])} 
-                  isDual={activeMode === SessionType.DUAL}
-                  isRightSide={activeMode === SessionType.DUAL && (currentSession.currentRound % 2 !== 0)}
-                />
-              )}
-            </div>
-          </div>
-
-          <div className="p-4 md:p-6 pb-6 md:pb-10 glass border-t border-gray-200 dark:border-[#2C2C2E] shrink-0">
-            <div className="max-w-4xl mx-auto flex items-end gap-3">
-              <div className="flex-1 relative">
-                {activeMode === SessionType.DUAL ? (
-                  <div className="w-full bg-gray-100 dark:bg-white/5 border border-dashed border-gray-300 dark:border-white/10 rounded-[22px] px-5 py-3 text-xs md:text-sm flex items-center justify-center gap-2 text-gray-400 font-medium">
-                    <Eye size={16} /> <span>{currentSession.dualMode === DualMode.DEBATE ? '对抗辩论' : '演绎扮演'}模式：用户暂不参与讨论</span>
-                  </div>
-                ) : (
-                  <>
-                    <textarea 
-                      className="w-full bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-[22px] px-5 py-2.5 md:py-3 text-[14px] md:text-[15px] focus:outline-none focus:border-blue-500 transition-all resize-none shadow-sm placeholder:opacity-30"
-                      placeholder={currentSession?.isRunning ? "讨论中，您可以补充观点..." : "发送消息..."}
-                      value={userInput}
-                      onChange={(e) => setUserInput(e.target.value)}
-                      rows={1}
-                      onKeyDown={(e) => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault(); handleSendMessage();}}}
-                    />
-                    <button onClick={handleSendMessage} disabled={!userInput.trim()}
-                      className="absolute right-2.5 bottom-2 p-1.5 rounded-full bg-blue-500 text-white disabled:opacity-20 hover:scale-105 active:scale-95 transition-all">
-                      <Send size={18} fill="currentColor"/>
-                    </button>
-                  </>
-                )}
-              </div>
-              {activeMode !== SessionType.SINGLE && (
-                <div className="flex gap-2">
-                  {currentSession?.isRunning ? (
-                    <button onClick={() => setSessions(prev => prev.map(s => s.id === currentSession.id ? {...s, isRunning:false} : s))}
-                      className="p-3 md:p-3.5 rounded-[18px] md:rounded-[20px] bg-red-100 dark:bg-red-500/10 text-red-500 hover:bg-red-200 dark:hover:bg-red-500/20 transition-all shadow-sm">
-                      <Square size={20} fill="currentColor" />
-                    </button>
-                  ) : (
-                    <button onClick={startWorkshop}
-                      className="p-3 md:p-3.5 rounded-[18px] md:rounded-[20px] bg-blue-100 dark:bg-blue-500/10 text-blue-500 hover:bg-blue-200 dark:hover:bg-blue-500/20 transition-all shadow-sm">
-                      <Play size={20} fill="currentColor" />
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
+    {/* --- 右侧配置面板--- */}
         <RightPanel 
         isOpen={showRightPanel}
         activeTab={rightPanelTab}
@@ -439,7 +343,7 @@ export default function App() {
         onUpdateSession={handleUpdateCurrentSession}
       /> 
       </div>
-
+      {/* ---智能体弹窗--- */}
       {editingAgent && (
         <AgentEditor
           agent={editingAgent}
