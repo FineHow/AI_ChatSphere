@@ -57,7 +57,7 @@ export const useChatController = () => {
   // 研讨/双机逻辑 (最复杂的那个循环)
   const startWorkshop = async () => {
     if (!currentSession || currentSession.isRunning) return;
-    if (currentSession.agentIds.length < 2) return alert("至少需要两个智能体。");
+    if (currentSession.agentIds.length < 2) return alert("研讨需要至少选择两个智能体。");
 
     updateCurrentSession({ isRunning: true, currentRound: 0 });
 
@@ -85,7 +85,18 @@ export const useChatController = () => {
       // ... 构建 Prompt 逻辑 (省略部分字符串拼接，和之前一样) ...
       const sharedBg = latestSession.backgroundContext || '探讨中...';
       const specificPrompt = latestSession.agentSpecificPrompts?.[actingAgent.id] || '';
-      let sysMsg = `...`; // (保留你原本的 Prompt 构建逻辑)
+      
+      let sysMsg = `共同背景: ${sharedBg}\n你的特定立场: ${specificPrompt}\n当前是研讨轮次: ${round + 1}/${latestSession.maxRounds}`;
+
+      if (latestSession.type === SessionType.MULTI) {
+              sysMsg = `[会议室模式] 共同议题: ${sharedBg}\n请参与讨论。轮次: ${round + 1}/${latestSession.maxRounds}`;
+            } else if (latestSession.type === SessionType.DUAL) {
+              if (latestSession.dualMode === DualMode.DEBATE) {
+                sysMsg = `[对抗辩论模式] 当前议题: ${sharedBg}\n你的特定辩论任务: ${specificPrompt}\n请针对前文的观点进行辩论、反驳或深化。保持你的角色性格。轮次: ${round + 1}`;
+              } else {
+                sysMsg = `[演绎扮演模式] 剧情背景: ${sharedBg}\n你的角色在此场景中的特定任务/立场: ${specificPrompt}\n请与其他角色互动，推动剧情发展。保持角色一致性，完成你的目标。轮次: ${round + 1}`;
+              }
+            }
 
       try {
         const result = await geminiService.generateResponse(
@@ -106,8 +117,9 @@ export const useChatController = () => {
         addMessage(currentSession.id, modelMsg);
         updateCurrentSession({ currentRound: round + 1 });
 
-        await new Promise(r => setTimeout(r, 2000)); // 思考延迟
+        await new Promise(r => setTimeout(r, 2200)); // 思考延迟
       } catch (err) {
+        console.error("Workshop Error:", err);
         break;
       }
     }

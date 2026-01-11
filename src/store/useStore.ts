@@ -26,8 +26,10 @@ interface AppState {
   setActiveMode: (mode: SessionType) => void;
   toggleDarkMode: () => void;
   toggleLeftSidebar: (isOpen: boolean) => void;
-  toggleRightPanel: (isOpen: boolean) => void;
+  toggleRightPanel: (isOpen: boolean) => void; 
   setRightPanelTab: (tab: 'config' | 'memory' | 'json') => void;
+
+  switchActiveMode: (mode: SessionType) => void;
   
   // 复杂的 Session 增删逻辑也可以放这里
   createNewSession: (type: SessionType) => void;
@@ -50,6 +52,10 @@ export const useStore = create<AppState>()(
       },
 
       // 2. 动作实现
+
+    
+
+
       setSessions: (sessions) => set({ sessions }),
       
       setAgents: (agents) => set({ agents }),
@@ -85,6 +91,33 @@ export const useStore = create<AppState>()(
       setRightPanelTab: (tab) => set((state) => ({
         uiState: { ...state.uiState, rightPanelTab: tab }
       })),
+      
+      // 智能切换
+      switchActiveMode: (mode) => {
+        const { sessions, createNewSession } = get();
+        
+        // 1. 先更新模式状态
+        set({ activeMode: mode });
+
+        // 2. 查找该模式下的现有会话
+        const existingSession = sessions.find(s => s.type === mode);
+
+        if (existingSession) {
+          // 3. 如果有，切换过去
+          set({ 
+            currentSessionId: existingSession.id,
+            uiState: { 
+              ...get().uiState, 
+              // 如果是单机模式关掉右侧，其他模式打开右侧
+              showRightPanel: mode !== SessionType.SINGLE 
+            }
+          });
+        } else {
+          // 4. 如果没有，直接创建新的
+          // createNewSession 内部已经包含了 setCurrentSessionId 和 uiState 的更新
+          createNewSession(mode);
+        }
+      },
 
       // 迁移原本 App.tsx 里的 createNewSession 逻辑
       createNewSession: (type) => {
