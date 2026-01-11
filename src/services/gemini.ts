@@ -21,8 +21,6 @@ export class GeminiService {
     });
   }
 
-  
-
   async generateResponse(
     agent: Agent,
     history: Message[],

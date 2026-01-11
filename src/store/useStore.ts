@@ -28,10 +28,7 @@ interface AppState {
   toggleLeftSidebar: (isOpen: boolean) => void;
   toggleRightPanel: (isOpen: boolean) => void; 
   setRightPanelTab: (tab: 'config' | 'memory' | 'json') => void;
-
   switchActiveMode: (mode: SessionType) => void;
-  
-  // 复杂的 Session 增删逻辑也可以放这里
   createNewSession: (type: SessionType) => void;
   deleteSession: (id: string) => void;
 }
@@ -52,9 +49,6 @@ export const useStore = create<AppState>()(
       },
 
       // 2. 动作实现
-
-    
-
 
       setSessions: (sessions) => set({ sessions }),
       
