@@ -4,6 +4,23 @@ import { geminiService } from '../services/gemini';
 import { SessionType, Message, DualMode } from '../types';
 
 export const useChatController = () => {
+
+
+// 辅助函数：把后端返回的消息格式转为前端 Message 类型
+// 后端可能返回 { id, content, createdAt ... }
+// 前端需要 { id, content, timestamp ... }
+const mapDbMessageToFrontend = (dbMsg: any): Message => ({
+  id: dbMsg.id,
+  role: dbMsg.role,
+  content: dbMsg.content,
+  agentId: dbMsg.agentId,
+  agentName: dbMsg.agentName,
+  timestamp: new Date(dbMsg.createdAt).getTime(), // 转换时间格式
+  memoriesUsed: dbMsg.metadata?.memoriesUsed || [],
+});
+
+
+
   // 只需要从 Store 里取数据，不需要自己维护 Session 状态
   const { 
     sessions, currentSessionId, agents, 
@@ -14,45 +31,85 @@ export const useChatController = () => {
   
   const currentSession = sessions.find(s => s.id === currentSessionId);
 
-  // 发送消息逻辑
   const handleSendMessage = async () => {
     if (!currentSession || !userInput.trim()) return;
     if (currentSession.type === SessionType.DUAL) return;
 
-    const input = userInput;
-    const newUserMsg: Message = {
-      id: `msg-${Date.now()}`, role: 'user', content: input,
-      timestamp: Date.now(), memoriesUsed: []
+    const inputContent = userInput;
+    setUserInput(''); // 1. 先清空输入框，提升体验
+
+    // 2. 准备发送给后端的数据
+    const payload = {
+        sessionId: currentSession.id,
+        role: 'user',
+        content: inputContent,
     };
 
-    // 1. UI 立即更新用户消息
-    addMessage(currentSession.id, newUserMsg);
-    setUserInput('');
-    
-    if (currentSession.type === SessionType.SINGLE) {
-      updateCurrentSession({ isRunning: true });
-      
-      try {
-        const agent = agents.find(a => a.id === currentSession.agentIds[0]) || agents[0];
-        // 注意：这里获取的是更新前的 messages，实际上应该把 newUserMsg 拼进去传给 API
-        const history = [...currentSession.messages, newUserMsg];
+    try {
+        // --- 第一阶段：保存用户消息 ---
         
-        const result = await geminiService.generateResponse(agent, history, input);
-        
-        const modelMsg: Message = {
-          id: `msg-${Date.now()}`, role: 'model', content: result.content,
-          agentId: agent.id, agentName: agent.name, timestamp: Date.now(),
-          memoriesUsed: result.memoriesUsed, rawRequest: result.rawRequest, rawResponse: result.rawResponse
-        };
+        // A. 调用后端 API
+        const userRes = await fetch('http://localhost:3001/api/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
 
-        addMessage(currentSession.id, modelMsg);
-      } catch (err) {
-        console.error(err);
-      } finally {
+        if (!userRes.ok) throw new Error("用户消息保存失败");
+        
+        const savedUserMsg = await userRes.json();
+        
+        // B. 使用后端返回的完整数据（包含真实的 UUID）更新 UI
+        // 注意：addMessage 最好能接收单个消息对象
+        const frontendUserMsg = mapDbMessageToFrontend(savedUserMsg);
+        addMessage(currentSession.id, frontendUserMsg);
+
+        // --- 第二阶段：AI 生成并保存 ---
+
+        if (currentSession.type === SessionType.SINGLE) {
+            updateCurrentSession({ isRunning: true });
+            
+            const agent = agents.find(a => a.id === currentSession.agentIds[0]) || agents[0];
+            
+            // C. 准备历史上下文 (把刚才保存的用户消息拼进去)
+            const history = [...currentSession.messages, frontendUserMsg];
+            
+            // D. 调用 Gemini AI
+            const result = await geminiService.generateResponse(agent, history, inputContent);
+            
+            // E. 将 AI 的回复发送给后端保存
+            const aiPayload = {
+                sessionId: currentSession.id,
+                role: 'model',
+                content: result.content,
+                agentId: agent.id,
+                agentName: agent.name,
+                metadata: { 
+                    memoriesUsed: result.memoriesUsed,
+                    rawRequest: result.rawRequest,
+                    rawResponse: result.rawResponse
+                }
+            };
+
+            const aiRes = await fetch('http://localhost:3001/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(aiPayload)
+            });
+
+            const savedAiMsg = await aiRes.json();
+            
+            // F. 更新 UI 显示 AI 回复
+            addMessage(currentSession.id, mapDbMessageToFrontend(savedAiMsg));
+        }
+
+    } catch (err) {
+        console.error("发送流程出错:", err);
+        // 这里最好加上错误提示，比如 toast
+    } finally {
         updateCurrentSession({ isRunning: false });
-      }
     }
-  };
+};
 
   // 研讨/双机逻辑 (最复杂的那个循环)
   const startWorkshop = async () => {

@@ -32,11 +32,15 @@ interface AppState {
   createNewSession: (type: SessionType) => void;
   deleteSession: (id: string) => void;
 }
+// 假设后端 API 地址
+const API_URL = 'http://localhost:3001/api/sessions';
+const MOCK_USER_ID = "test-user-123"; // 暂时硬编码
 
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       // 1. 初始数据
+
       sessions: [],
       agents: DEFAULT_AGENTS, // 初始值，会被 localStorage 覆盖
       currentSessionId: null,
@@ -113,35 +117,83 @@ export const useStore = create<AppState>()(
         }
       },
 
-      // 迁移原本 App.tsx 里的 createNewSession 逻辑
-      createNewSession: (type) => {
+
+      // ★★★ 修改后的 createNewSession ★★★
+      createNewSession: async (type: SessionType) => {
         const { agents } = get();
-        const id = 'session-' + Date.now();
-        const newSession: Session = {
-          id,
-          title: '新话题 ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          type,
+
+        // 1. 准备数据 (和以前一样，算出初始值)
+        const title = '新话题 ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        // 逻辑：根据模式决定初始 agent
+        const agentIds = type === SessionType.SINGLE 
+          ? [agents[0].id] 
+          : [agents[0].id, agents[1].id];
+
+        // 逻辑：把“杂项”配置打包进 config 对象
+        // 因为数据库 sessions 表只有 id, title, type, agentIds, config 这几个固定字段
+        // 其他前端特有的 UI 逻辑参数，全部塞进 config (JSONB) 里
+        const configPayload = {
           dualMode: DualMode.DEBATE,
-          agentIds: type === SessionType.SINGLE ? [agents[0].id] : [agents[0].id, agents[1].id],
-          messages: [],
           maxRounds: type === SessionType.SINGLE ? 1 : 12,
           currentRound: 0,
-          isRunning: false,
-          backgroundContext: type === SessionType.MULTI ? '探讨当前人工智能的伦理挑战' : (type === SessionType.DUAL ? '人类意识是否可以被数字永生替代？' : ''),
+          backgroundContext: type === SessionType.MULTI 
+            ? '探讨当前人工智能的伦理挑战' 
+            : (type === SessionType.DUAL ? '人类意识是否可以被数字永生替代？' : ''),
           agentSpecificPrompts: {},
           firstSpeakerId: agents[0].id
         };
-        
-        set((state) => ({
-          sessions: [newSession, ...state.sessions],
-          currentSessionId: id,
-          activeMode: type,
-          uiState: { 
-            ...state.uiState, 
-            showRightPanel: type !== SessionType.SINGLE,
-            showLeftSidebar: false
-          }
-        }));
+
+        try {
+          // 2. 发送给后端 (POST)
+          const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: MOCK_USER_ID,
+              title: title,
+              type: type,
+              agentIds: agentIds,
+              config: configPayload // 重点：把配置打包发过去
+            })
+          });
+
+          if (!response.ok) throw new Error('创建会话失败');
+
+          const savedData = await response.json();
+
+          // 3. 将后端返回的数据转换为前端 Session 格式 (解包)
+          // 后端返回: { id: "uuid...", title: "...", config: { dualMode: ... }, ... }
+          // 前端需要: { id: "uuid...", title: "...", dualMode: ..., ... }
+          
+          const newSession: Session = {
+            id: savedData.id, // ★ 这里拿到的就是数据库生成的 UUID 了
+            title: savedData.title,
+            type: savedData.type as SessionType,
+            agentIds: savedData.agentIds,
+            messages: [], // 新会话默认没消息
+            isRunning: false, // UI 状态，数据库不存，默认 false
+            
+            // ★ 解包 config：把数据库里的 config 展开回根属性
+            ...savedData.config 
+          };
+
+          // 4. 更新 Zustand Store (和以前一样，只是数据源变了)
+          set((state) => ({
+            sessions: [newSession, ...state.sessions],
+            currentSessionId: newSession.id,
+            activeMode: type,
+            uiState: { 
+              ...state.uiState, 
+              showRightPanel: type !== SessionType.SINGLE,
+              showLeftSidebar: false
+            }
+          }));
+
+        } catch (error) {
+          console.error("创建会话出错:", error);
+          // 这里可以加一个 toast 提示用户失败
+        }
       },
 
       deleteSession: (id) => {

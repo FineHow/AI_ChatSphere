@@ -13,6 +13,28 @@ import {ChatView } from './components/Chat/ChatView';
 
 
 export default function App() {
+
+  const { setSessions, setCurrentSessionId } = useStore();
+
+  useEffect(() => {
+    const initData = async () => {
+      const userId = "test-user-123"; // 暂时硬编码
+      try {
+        const response = await fetch(`http://localhost:3001/api/sessions/user/${userId}`);
+        const sessions = await response.json();
+        
+        if (sessions.length > 0) {
+          setSessions(sessions);
+          // 默认选中第一个会话
+          setCurrentSessionId(sessions[0].id);
+        }
+      } catch (err) {
+        console.error("加载初始数据失败:", err);
+      }
+    };
+    initData();
+  }, []);
+
   const { 
     sessions, 
     agents, 
@@ -55,11 +77,47 @@ export default function App() {
   }, [uiState.isDarkMode]);
 
   // 初始化检查
-  useEffect(() => {
-    if (sessions.length === 0) {
-      createNewSession(SessionType.SINGLE);
-    }
-  }, [sessions.length, createNewSession]);
+  // useEffect(() => {
+  //   if (sessions.length === 0) {
+  //     createNewSession(SessionType.SINGLE);
+  //   }
+  // }, [sessions.length, createNewSession]);
+
+  // 2. 添加新的异步加载 useEffect
+  useEffect(() => {                       
+    const initData = async () => {
+      const userId = "test-user-123"; // 暂时硬编码，以后换 Logto
+      try {
+        // A. 向后端请求列表
+        const res = await fetch(`http://localhost:3001/api/sessions/user/${userId}`);
+        const data = await res.json();
+
+        if (data.length > 0) {
+          // B. 如果数据库有数据，转换格式并存入 Store
+          // 注意：后端返回的数据字段是 createdAt，前端是 timestamp，可能需要 map 一下
+          const formattedSessions = data.map((s: any) => ({
+            ...s,
+            // 确保数据库存的 JSON 字段能正确解析
+            messages: [], // 列表接口通常不返回详细消息，消息需要点击会话后再懒加载
+            agentIds: s.agentIds || [], 
+            isRunning: false 
+          }));
+          
+          setSessions(formattedSessions);
+          // 默认选中最新的一个
+          setCurrentSessionId(formattedSessions[0].id);
+        } else {
+          // C. 如果数据库是空的，才创建新会话
+          // 这里需要确保 createNewSession 也是走 API 的
+          createNewSession(SessionType.SINGLE);
+        }
+      } catch (err) {
+        console.error("无法连接后端:", err);
+      }
+    };
+
+    initData();
+  }, []); // 空依赖数组，只在组件挂载时执行一次
   
 
   // 这里的逻辑依然需要保留，因为它是具体的业务规则，利用 Store 的 updateCurrentSession 来实现
