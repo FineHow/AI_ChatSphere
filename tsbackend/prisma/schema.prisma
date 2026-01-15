@@ -12,6 +12,7 @@ model User {
   email     String?   @db.VarChar(255)
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
   sessions  Session[]
+  agents Agent[]
 
   @@map("users")
 }
@@ -42,4 +43,20 @@ model Message {
   session   Session?  @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("messages")
+}
+
+
+
+model Agent {
+  id        String   @id @default(uuid()) // 这里的 uuid() 对应 PostgreSQL 的 gen_random_uuid()
+  userId    String   @map("user_id") @db.VarChar(255)
+  name      String
+  persona   String   @db.Text // 人设通常比较长，用 Text
+  config    Json?    // 存放 { avatar, model, temperature, topP ... }
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // 可选：建立关联，如果你之前的 User 模型里写了 agents Agent[]
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("agents")
 }
