@@ -53,8 +53,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         </div>
         <div className="flex items-center gap-2 mt-1.5 px-2 opacity-20 text-[9px] font-mono">
           <span>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-          {message.memoriesUsed.length > 0 && <BrainCircuit size={10} />}
+          {message.memoriesUsed && message.memoriesUsed.length > 0 && <BrainCircuit size={10} />}
         </div>
       </div>
     );
-};                                            
+};
