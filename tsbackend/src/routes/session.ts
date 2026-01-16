@@ -1,4 +1,3 @@
-// src/routes/session.ts
 import { Router } from 'express';
 import prisma from '../db';
 
@@ -42,6 +41,41 @@ router.post('/', async (req, res) => {
     res.json(newSession);
   } catch (error) {
     res.status(500).json({ error: '创建会话失败' });
+  }
+});
+
+// 3. 更新会话配置 (PATCH)
+// 前端可能只发来 title，或者只发来 config，或者 agentIds
+router.patch('/:id', async (req, res) => {
+  const { id } = req.params;
+  const { title, type, agentIds, config } = req.body;
+
+  try {
+    const updatedSession = await prisma.session.update({
+      where: { id },
+      data: {
+        // Prisma 允许 undefined，如果是 undefined 就不会更新该字段
+        title, 
+        type,
+        agentIds, 
+        config 
+      }
+    });
+    res.json(updatedSession);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: '更新会话失败' });
+  }
+});
+
+// 4. 删除会话 (既然做了 CRUD，顺便加上删除)
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.session.delete({ where: { id } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: '删除会话失败' });
   }
 });
 

@@ -1,4 +1,3 @@
-// src/routes/message.ts
 import { Router } from 'express';
 import prisma from '../db';
 

@@ -4,6 +4,8 @@ import cors from 'cors';
 import sessionRoutes from './routes/session';
 import messageRoutes from './routes/message';
 import bodyParser from 'body-parser';  // 添加这行
+import agentRoutes from './routes/agent';
+
 
 const app = express();
 
@@ -14,6 +16,7 @@ app.use(bodyParser.json());  // 替换 express.json()
 // 注册路由
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/agents', agentRoutes);
 
 const PORT = 3001;
 app.listen(PORT, () => {
