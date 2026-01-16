@@ -17,6 +17,8 @@ const mapDbMessageToFrontend = (dbMsg: any): Message => ({
   agentName: dbMsg.agentName,
   timestamp: new Date(dbMsg.createdAt).getTime(), // 转换时间格式
   memoriesUsed: dbMsg.metadata?.memoriesUsed || [],
+  rawRequest: dbMsg.metadata?.rawRequest,
+  rawResponse: dbMsg.metadata?.rawResponse,
 });
 
 
@@ -46,9 +48,6 @@ const mapDbMessageToFrontend = (dbMsg: any): Message => ({
     };
 
     try {
-        // --- 第一阶段：保存用户消息 ---
-        
-        // A. 调用后端 API
         const userRes = await fetch('http://localhost:3001/api/messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -56,15 +55,10 @@ const mapDbMessageToFrontend = (dbMsg: any): Message => ({
         });
 
         if (!userRes.ok) throw new Error("用户消息保存失败");
-        
         const savedUserMsg = await userRes.json();
-        
-        // B. 使用后端返回的完整数据（包含真实的 UUID）更新 UI
-        // 注意：addMessage 最好能接收单个消息对象
         const frontendUserMsg = mapDbMessageToFrontend(savedUserMsg);
         addMessage(currentSession.id, frontendUserMsg);
 
-        // --- 第二阶段：AI 生成并保存 ---
 
         if (currentSession.type === SessionType.SINGLE) {
             updateCurrentSession({ isRunning: true });
@@ -105,13 +99,12 @@ const mapDbMessageToFrontend = (dbMsg: any): Message => ({
 
     } catch (err) {
         console.error("发送流程出错:", err);
-        // 这里最好加上错误提示，比如 toast
     } finally {
         updateCurrentSession({ isRunning: false });
     }
 };
 
-  // 研讨/双机逻辑 (最复杂的那个循环)
+  // 研讨/双机逻辑 
   const startWorkshop = async () => {
     if (!currentSession || currentSession.isRunning) return;
     if (currentSession.agentIds.length < 2) return alert("研讨需要至少选择两个智能体。");
@@ -162,16 +155,31 @@ const mapDbMessageToFrontend = (dbMsg: any): Message => ({
             latestSession.messages[latestSession.messages.length - 1]?.content || "Start", 
             sysMsg
         );
-        
-        const modelMsg: Message = {
-           // ... (构建消息对象)
-           id: `msg-${Date.now()}`, role: 'model', content: result.content,
-           agentId: actingAgent.id, agentName: actingAgent.name, timestamp: Date.now(),
-           memoriesUsed: result.memoriesUsed
-        };
+        // 2. ★ 核心修改：将 AI 回复持久化到后端 ★
+    const aiPayload = {
+      sessionId: currentSession.id,
+      role: 'model',
+      content: result.content,
+      agentId: actingAgent.id,
+      agentName: actingAgent.name,
+      metadata: { 
+        memoriesUsed: result.memoriesUsed,
+        rawRequest: result.rawRequest, 
+        rawResponse: result.rawResponse
+      }
+    };
 
-        // 更新 Store
-        addMessage(currentSession.id, modelMsg);
+    const aiRes = await fetch('http://localhost:3001/api/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(aiPayload)
+    });
+
+    if (!aiRes.ok) throw new Error("AI 消息保存失败");
+    
+    const savedAiMsg = await aiRes.json();
+        const frontendAiMsg = mapDbMessageToFrontend(savedAiMsg);
+        addMessage(currentSession.id, frontendAiMsg);
         updateCurrentSession({ currentRound: round + 1 });
 
         await new Promise(r => setTimeout(r, 2200)); // 思考延迟

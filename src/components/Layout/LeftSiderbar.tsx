@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, ChevronLeft, Plus, Settings2, PlusCircle, History, Trash2, Sun, Moon, Zap } from 'lucide-react';
+import { Cat, ChevronLeft, Plus, Settings2, PlusCircle, History, Trash2, Sun, Moon, Zap } from 'lucide-react';
 import { Session, Agent, SessionType } from '../../types';
 import { COLORS } from '../../constants';
 
@@ -60,7 +60,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                 <div className="h-16 flex items-center px-6 justify-between border-b border-gray-200 dark:border-[#2C2C2E]">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-[#007AFF] flex items-center justify-center shadow-lg shadow-blue-500/20">
-                      <Bot size={18} className="text-white" />
+                      <Cat size={18} className="text-white" />
                     </div>
                     <h1 className="font-bold text-base tracking-tight opacity-80 uppercase">聊想ChatSphere</h1>
                   </div>

@@ -10,11 +10,13 @@ import { LeftSidebar } from './components/Layout/LeftSiderbar';
 import { RightPanel } from './components/Layout/RightPanel';
 import { AgentEditor } from './components/Modals/AgentEditor';
 import {ChatView } from './components/Chat/ChatView';
+import { DEFAULT_AGENTS } from './constants';
 
 
 export default function App() {
 
   const { setSessions, setCurrentSessionId } = useStore();
+  const {  fetchSessionMessages } = useStore();
 
   useEffect(() => {
     const initData = async () => {
@@ -40,10 +42,11 @@ export default function App() {
     agents, 
     currentSessionId, 
     activeMode, 
-    uiState, // 包含 isDarkMode, showRightPanel 等
-    
-    // Actions (修改数据的方法)
-    setAgents,
+    uiState, 
+    loadAgents, 
+    addAgent,
+    deleteAgent, 
+    updateAgent, 
     switchActiveMode,
     createNewSession,
     deleteSession,
@@ -75,40 +78,55 @@ export default function App() {
     if (uiState.isDarkMode) html.classList.add('dark');
     else html.classList.remove('dark');
   }, [uiState.isDarkMode]);
-
-  // 初始化检查
-  // useEffect(() => {
-  //   if (sessions.length === 0) {
-  //     createNewSession(SessionType.SINGLE);
-  //   }
-  // }, [sessions.length, createNewSession]);
-
-  // 2. 添加新的异步加载 useEffect
+ 
+  useEffect(() => {
+    if (currentSessionId) {
+      // 当选中的 ID 变化时，去后端拉取该会话的消息
+      fetchSessionMessages(currentSessionId);
+    }
+  }, [currentSessionId, fetchSessionMessages]);
+ 
   useEffect(() => {                       
     const initData = async () => {
       const userId = "test-user-123"; // 暂时硬编码，以后换 Logto
+
+      // 1. 尝试加载 Agents，并获取是否为空的结果
+      const isEmpty = await loadAgents();
+
+      // 2. 如果数据库是空的，开始初始化
+      if (isEmpty) {
+        console.log("数据库为空，正在初始化默认智能体...");
+        for (const agent of DEFAULT_AGENTS) {
+          // 注意：DEFAULT_AGENTS 里的 id 是死数据，addAgent 会忽略它，让数据库生成新 ID
+          await addAgent({
+            name: agent.name,
+            persona: agent.persona,
+            avatar: agent.avatar,
+            model: agent.model,
+            temperature:  agent.temperature,
+            color: agent.color,
+            maxOutputTokens: agent.maxOutputTokens
+          });
+        }
+        console.log("初始化完成！");
+      }
       try {
         // A. 向后端请求列表
         const res = await fetch(`http://localhost:3001/api/sessions/user/${userId}`);
         const data = await res.json();
 
         if (data.length > 0) {
-          // B. 如果数据库有数据，转换格式并存入 Store
-          // 注意：后端返回的数据字段是 createdAt，前端是 timestamp，可能需要 map 一下
+
           const formattedSessions = data.map((s: any) => ({
             ...s,
-            // 确保数据库存的 JSON 字段能正确解析
-            messages: [], // 列表接口通常不返回详细消息，消息需要点击会话后再懒加载
+            messages: [], 
             agentIds: s.agentIds || [], 
             isRunning: false 
           }));
           
           setSessions(formattedSessions);
-          // 默认选中最新的一个
           setCurrentSessionId(formattedSessions[0].id);
         } else {
-          // C. 如果数据库是空的，才创建新会话
-          // 这里需要确保 createNewSession 也是走 API 的
           createNewSession(SessionType.SINGLE);
         }
       } catch (err) {
@@ -262,18 +280,22 @@ export default function App() {
           agent={editingAgent}
           totalAgentsCount={agents.length}
           onClose={() => setEditingAgent(null)}
-          onDelete={(id) => { // 这里调用 store 的 setAgents 来更新列表
-            const newAgents = agents.filter(a => a.id !== id);
-            setAgents(newAgents);
-            setEditingAgent(null);
-          }}
-          onSave={(updatedAgent) => {// 同样调用 store 的 setAgents
-            const exists = agents.find(a => a.id === updatedAgent.id);
-            if (exists) {
-              setAgents(agents.map(a => a.id === updatedAgent.id ? updatedAgent : a));
-            } else {
-              setAgents([...agents, updatedAgent]);
+          onDelete={async (id:string) => {
+            if (confirm('确定要删除这个智能体吗？此操作无法撤销。')) {
+              await deleteAgent(id); // 调用 Store 的异步动作（请求后端 -> 更新 UI）
+              setEditingAgent(null); // 关闭弹窗
             }
+          }}
+            onSave={async (agentData) => {
+              const isExisting = agents.some(a => a.id === agentData.id);
+
+              if (isExisting) {
+
+                await updateAgent(agentData.id, agentData);
+              } else {
+                const { id, ...createPayload } = agentData;
+                await addAgent(createPayload);
+              }
             setEditingAgent(null);
           }}
         />
