@@ -2,26 +2,92 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**聊想 (AI ChatSphere)** 是一个创新的多智能体对话平台，旨在为用户提供一个充满创意与思想碰撞的虚拟互动空间。通过多模型AI技术，用户可以与个性化智能体深度交流、体验角色扮演的情景对话、参与或围观激烈的多方讨论，并探索AI的思维逻辑。无论是娱乐、学习还是创意激发，AI ChatSphere 都能为你带来独特体验。
+一个用于多智能体交互的实验性对话平台，支持单聊、双机对抗（Debate/Roleplay）和多方会议室模式。前端使用 React + Vite 实现交互界面，后端为 TypeScript/Express（位于 `tsbackend/`），并使用 Prisma 管理数据库。适合作为多智能体对话、Prompt 工程研发和交互式演示。
 
-## 项目介绍
+**主要特性**
 
-### 核心功能与技术亮点
+- 个性化智能体（Agent）配置：名称、角色、persona、模型与参数
+- 模式支持：SINGLE / DUAL / MULTI（对话 / 双机 / 会议室）
+- 双机模式支持 `DEBATE` 与 `ROLEPLAY` 两种子模式
+- 对话持久化：消息保存在后端并可回溯（`memoriesUsed` 字段用于记录检索记忆）
+- 前端：实时展示对话、思考动画、消息选择与时间戳
 
-- **个性化AI智能体对话**：用户可自定义AI智能体的性格、背景和语言风格，支持一对一或多方对话。
-- **情景演绎模式**：允许用户为AI设定角色和剧情，生成沉浸式对话内容（如“CP”互动），通过预定义模板和动态 prompt 工程实现角色一致性和剧情灵活性，适合创意娱乐场景。
-- **会议室与辩论模式**：支持多个AI智能体围绕某一话题展开讨论或对立辩论，利用冲突性 prompt 设计和多智能体协作框架，模拟真实思想碰撞，甚至“针锋相对”的趣味互动，供用户观察或参与。
-- **记忆回溯功能**：提供AI决策透明化支持，用户可查看AI回复所依赖的历史对话上下文及其权重分布。该功能通过对话日志存储和注意力机制（Attention Mechanism）分析实现，为对AI行为感兴趣的用户提供深入洞察。
-- **技术架构概述**：项目后端基于node.js 构建，前端采用 React 实现动态交互界面，
+## 仓库结构（重要目录）
 
-### 应用场景
+- `src/` — 前端代码（React + TypeScript + Vite）
+  - `components/Chat/MessageBubble.tsx` — 消息气泡显示（包含 agent 名称回退逻辑）
+  - `hooks/` — 自定义 Hook（如 `useChatController`）
+  - `services/` — 与 LLM 服务（Gemini）交互的封装
+  - `store/` — 全局状态（Zustand）与会话管理逻辑
+- `tsbackend/` — 后端服务（Express + Prisma）
+  - `src/routes/` — API 路由（session/message/agent）
+  - `prisma/` — 数据模型与迁移
 
-- **创意娱乐**：通过情景演绎满足CP剧情互动需求，或围观会议室中的AI“辩论大战”。
-- **学习与研究**：与AI探讨专业话题，或利用记忆回溯分析对话逻辑，适合NLP研究者和学生。
-- **头脑风暴**：借助多智能体讨论模式，激发个人或团队创意。
-- **情感陪伴**：定制贴心AI智能体，随时伴聊，缓解日常压力。
+## 本地开发环境（Prerequisites）
 
-AI ChatSphere 的设计灵感来源于多智能体交互和人机协作研究，旨在通过技术手段打破传统对话工具的局限，为用户提供一个既有趣又实用的虚拟交流空间。
+- Node.js >= 18
+- npm
+- 可选：Docker
+
+## 配置（Environment）
+
+在 `tsbackend/` 中使用 `.env` 文件来配置后端（示例）：
+
+```
+DATABASE_URL="file:./dev.db"
+PORT=3001
+GOOGLE_API_KEY=your_google_api_key_here
+```
+
+在 `src/`（前端）也可使用 `.env` 来覆盖运行时配置（例如代理或 API 根路径）。
+
+## 安装与运行（分两个终端分别启动前后端）
+
+1) 启动后端 (开发模式)
+
+```powershell
+cd tsbackend; npm install; npm run dev
+```
+
+后端默认监听 `http://localhost:3001`（可在 `.env` 中调整）。
+
+2) 启动前端
+
+```powershell
+cd src; npm install; npm run dev
+```
+
+前端默认由 Vite 提供，开发服务器会在控制台显示访问地址，通常为 `http://localhost:5173`。UI 中会将请求代理/直连到后端 `http://localhost:3001`（详见代码中的 API_URL）。
+
+> 推荐：将后端先启动，然后打开前端，这样前端在初始化会话或拉取历史消息时不会遇到 404。
+
+## 关键开发说明（快速定位）
+
+- 消息类型定义：`src/types.ts`（包含 `Message`、`Agent`、`Session`、`SessionType`）
+- 会话与消息管理：`src/store/slices/createSessionSlice.ts`（创建/更新/拉取消息的核心逻辑）
+- 生成与研讨控制：`src/hooks/useChatController.ts`（含双机与会议室的循环逻辑、保存消息到后端）
+- 与 LLM 的交互封装：`src/services/gemini.ts`（调用 Google/其它模型）
+
+## 常见问题与调试（FAQ）
+
+
+- 问：消息不显示或页面卡住？
+
+  - 检查后端是否在 `http://localhost:3001` 正常运行并且 API 无报错。
+  - 打开浏览器控制台网络面板查看请求与响应（API 路径：`/api/messages`、`/api/sessions`）。
+
+## 贡献与开发流程
+
+- Fork 仓库、创建 feature 分支（如 `feature/your-feature`）。
+- 提交时保持单一职责、写明变动说明与测试步骤。
+- 如涉及后端模型或数据库迁移，请在 PR 描述中注明迁移命令与注意点。
+
+## 许可
+
+本项目使用 MIT 许可证，详见 `LICENSE` 文件。
+
+
+
 
 人设设置：
 ![1766769644746](images/README/1766769644746.png)
@@ -39,23 +105,3 @@ AI ChatSphere 的设计灵感来源于多智能体交互和人机协作研究，
 
 UI黑夜模式和白天模式切换
 [![1766769717518](images/README/1766769717518.png)]()
-
-## 快速开始
-
-以下是快速安装和运行 AI ChatSphere 的步骤：
-
-```bash
-# 克隆仓库
-git clone https://github.com/FineHow/AI_ChatSphere.git
-cd src
-# 安装依赖
-npm install
-# 启动应用
-npm run dev
-```
-
-访问 `http://localhost:3000` 开始你的AI对话体验！
-
-> **注意**：请确保你的环境已安装 env 和必要的依赖项。
-
-（具体看env example）
