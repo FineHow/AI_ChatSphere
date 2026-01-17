@@ -3,6 +3,7 @@ import { StateCreator } from 'zustand';
 import { Session, SessionType, DualMode } from '../../types';
 import { AppState } from '../useStore';
 import { log } from 'console';
+import { json } from 'stream/consumers';
 
 const API_URL = 'http://localhost:3001/api/sessions';
 const USER_ID = "test-user-123";
@@ -104,15 +105,62 @@ export const createSessionSlice: StateCreator<AppState, [], [], SessionSlice> = 
           s.id === state.currentSessionId ? { ...s, ...updates } : s
         )
       }));
-      const currentSession = get().sessions.find(s => s.id === get().currentSessionId);
-      if(!currentSession) return;
+      
+      const currentSessionId = get().currentSessionId;
+      if (!currentSessionId) return;
+      // 2. 准备发给后端的数据
+     // 我们需要拿到更新后的完整 Session 对象，或者智能地计算出 diff
+      const session = get().sessions.find(s => s.id === currentSessionId);
+      if (!session) return;
 
-      if (updates.title || updates.dualMode || updates.backgroundContext) {
-        console.log("更新状态，但我还没想好");
-        
-      }
+  try {
+
+
+    const payload: any = {};
+    if (updates.title) payload.title = updates.title;
+    if (updates.agentIds) payload.agentIds = updates.agentIds;
+
+
+    const isConfigUpdate = 
+        updates.dualMode !== undefined || 
+        updates.maxRounds !== undefined || 
+        updates.backgroundContext !== undefined || 
+        updates.agentSpecificPrompts !== undefined ||
+        updates.firstSpeakerId !== undefined;
+
+    if (isConfigUpdate) {
+        payload.config = {
+            dualMode: session.dualMode,
+            maxRounds: session.maxRounds,
+            currentRound: session.currentRound, 
+            backgroundContext: session.backgroundContext,
+            agentSpecificPrompts: session.agentSpecificPrompts,
+            firstSpeakerId: session.firstSpeakerId
+        };
+    }
+
+    // 如果 payload 为空（比如更新的是 isRunning 这种纯 UI 状态），就不发请求
+    if (Object.keys(payload).length === 0) return;
+
+    // 3. 发送请求
+    const res = await fetch(`${API_URL}/${currentSessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+        console.error("保存会话配置失败", await res.text());
+    }
+
+  } catch (err) {
+    console.error("更新会话网络错误:", err);
+  }
+
+     
   },
 
+    //删除当前对话
   deleteSession: async (id) => {
     const { sessions, currentSessionId } = get();
     if (sessions.length <= 1) {
@@ -171,7 +219,9 @@ export const createSessionSlice: StateCreator<AppState, [], [], SessionSlice> = 
         agentId: msg.agentId,
         agentName: msg.agentName,
         timestamp: new Date(msg.createdAt).getTime(),
-        memoriesUsed: msg.metadata?.memoriesUsed || []
+        memoriesUsed: msg.metadata?.memoriesUsed || [],
+        jsonrawRequest: msg.metadata?.rawRequest|| {},
+        jsonrawResponse: msg.metadata?.rawResponse|| {}
       }));
 
       set(state => ({

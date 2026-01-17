@@ -179,16 +179,16 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 <div className="space-y-6">
                     {(() => {
                       const msg = session?.messages.find(m => m.id === selectedMsgId);
-                      if(!msg?.rawRequest) return <p className="text-xs text-gray-400 italic">该消息无原始 JSON 链路数据。</p>;
+                      if(!msg?.jsonrawRequest) return <p className="text-xs text-gray-400 italic">该消息无原始 JSON 链路数据。</p>;
                       return (
                         <>
                           <div className="space-y-3">
                             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 px-1"><Code size={12}/> Request</p>
-                            <pre className="p-4 rounded-[28px] bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 text-[10px] font-mono text-blue-500/60 overflow-auto max-h-[300px] shadow-inner">{JSON.stringify(msg.rawRequest, null, 2)}</pre>
+                            <pre className="p-4 rounded-[28px] bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 text-[10px] font-mono text-blue-500/60 overflow-auto max-h-[300px] shadow-inner">{JSON.stringify(msg.jsonrawRequest, null, 2)}</pre>
                           </div>
                           <div className="space-y-3">
                             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 px-1"><Terminal size={12}/> Response</p>
-                            <pre className="p-4 rounded-[28px] bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 text-[10px] font-mono text-purple-500/60 overflow-auto max-h-[300px] shadow-inner">{JSON.stringify(msg.rawResponse, null, 2)}</pre>
+                            <pre className="p-4 rounded-[28px] bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 text-[10px] font-mono text-purple-500/60 overflow-auto max-h-[300px] shadow-inner">{JSON.stringify(msg.jsonrawResponse, null, 2)}</pre>
                           </div>
                         </>
                       );

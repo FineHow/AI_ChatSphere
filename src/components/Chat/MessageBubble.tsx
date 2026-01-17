@@ -45,7 +45,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <span className="text-sm">{agent.avatar}</span>
           )}
           <span className="text-[10px] font-black opacity-30 uppercase tracking-[0.1em]">
-            {isModel ? (agent?.name || 'AI') : '用户'}
+            {isModel ? (agent?.name || message.agentName || 'AI') : '用户'}
           </span>
         </div>
         <div className={`max-w-[92%] md:max-w-[75%] px-4 md:px-5 py-2.5 md:py-3 rounded-[20px] text-[14px] md:text-[15px] leading-relaxed shadow-sm ${bubbleStyle}`}>
